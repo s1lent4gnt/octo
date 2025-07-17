@@ -571,7 +571,7 @@ class DiffusionActionHead(nn.Module):
             current_x = alpha_1 * (current_x - alpha_2 * eps_pred)
 
             rng, key = jax.random.split(rng)
-            z = jax.random.normal(key, shape=current_x.shape)
+            z = jnp.zeros_like(current_x)
             current_x = current_x + (time > 0) * (jnp.sqrt(self.betas[time]) * z)
 
             current_x = jnp.clip(current_x, -self.max_action, self.max_action)
@@ -584,8 +584,7 @@ class DiffusionActionHead(nn.Module):
             return (current_x, rng), ()
 
         rng, key = jax.random.split(rng)
-        noise = jax.random.normal(
-            key,
+        noise = jnp.zeros(
             (
                 *sample_shape,
                 batch_size,
