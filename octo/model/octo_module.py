@@ -269,6 +269,10 @@ class OctoTransformer(nn.Module):
                 )
             )
 
+
+        self.sow("intermediates", "all_prefix_groups", all_prefix_groups)
+        self.sow("intermediates", "all_timestep_groups", all_timestep_groups)
+
         # Run the transformer!
         assert (
             self.transformer_kwargs.get("add_position_embedding", False) is False
