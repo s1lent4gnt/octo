@@ -132,7 +132,7 @@ class OctoModel:
         _verify_shapes(tasks, "tasks", self.example_batch["task"], starting_dim=1)
         return tasks
 
-    @partial(jax.jit, static_argnames=("train",))
+    # @partial(jax.jit, static_argnames=("train",))
     def run_transformer(
         self,
         observations: Data,
@@ -167,10 +167,10 @@ class OctoModel:
             method="octo_transformer",
         )
 
-    @partial(
-        jax.jit,
-        static_argnames=("train", "sample_shape", "argmax"),
-    )
+    # @partial(
+    #     jax.jit,
+    #     static_argnames=("train", "sample_shape", "argmax"),
+    # )
     def sample_actions(
         self,
         observations: Data,
@@ -449,7 +449,7 @@ class OctoModel:
                 module.tabulate(rng, *init_args, train=False, verbose=True, depth=2)
             )  # Prints out the parameter count of our model, and tokenizer details
 
-        @jax.jit
+        # @jax.jit
         def _init(rng):
             return module.init(rng, *init_args, train=False)
 

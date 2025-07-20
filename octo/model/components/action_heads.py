@@ -558,8 +558,19 @@ class DiffusionActionHead(nn.Module):
             action_mask = action_mask.at[..., embodiment_action_dim:].set(False)
         flat_action_mask = rearrange(action_mask, "... p a -> ... (p a)")
 
-        def scan_fn(carry, time):
-            current_x, rng = carry
+        rng, key = jax.random.split(rng)
+        current_x = jnp.zeros(
+            (
+                *sample_shape,
+                batch_size,
+                window_size,
+                self.action_horizon * self.action_dim,
+            )
+        )
+
+        # def scan_fn(carry, time):
+        for time in reversed(range(self.diffusion_steps)):
+            # current_x, rng = carry
             input_time = jnp.broadcast_to(time, (*current_x.shape[:-1], 1))
 
             eps_pred = module.apply(
@@ -581,26 +592,26 @@ class DiffusionActionHead(nn.Module):
                 flat_action_mask, current_x, jnp.sqrt(1 - self.alpha_hats[time]) * z
             )
 
-            return (current_x, rng), ()
+            # return (current_x, rng), ()
 
-        rng, key = jax.random.split(rng)
-        noise = jnp.zeros(
-            (
-                *sample_shape,
-                batch_size,
-                window_size,
-                self.action_horizon * self.action_dim,
-            ),
-        )
+        # rng, key = jax.random.split(rng)
+        # noise = jnp.zeros(
+        #     (
+        #         *sample_shape,
+        #         batch_size,
+        #         window_size,
+        #         self.action_horizon * self.action_dim,
+        #     ),
+        # )
 
-        (actions_flat, _), () = jax.lax.scan(
-            scan_fn,
-            (noise, rng),
-            jnp.arange(self.diffusion_steps - 1, -1, -1),
-        )
+        # (actions_flat, _), () = jax.lax.scan(
+        #     scan_fn,
+        #     (noise, rng),
+        #     jnp.arange(self.diffusion_steps - 1, -1, -1),
+        # )
 
         actions = rearrange(
-            actions_flat,
+            current_x,
             "... (h a) -> ... h a",
             h=self.action_horizon,
             a=self.action_dim,
