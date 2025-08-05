@@ -558,19 +558,8 @@ class DiffusionActionHead(nn.Module):
             action_mask = action_mask.at[..., embodiment_action_dim:].set(False)
         flat_action_mask = rearrange(action_mask, "... p a -> ... (p a)")
 
-        rng, key = jax.random.split(rng)
-        current_x = jnp.zeros(
-            (
-                *sample_shape,
-                batch_size,
-                window_size,
-                self.action_horizon * self.action_dim,
-            )
-        )
-
-        # def scan_fn(carry, time):
-        for time in reversed(range(self.diffusion_steps)):
-            # current_x, rng = carry
+        def scan_fn(carry, time):
+            current_x, rng = carry
             input_time = jnp.broadcast_to(time, (*current_x.shape[:-1], 1))
 
             eps_pred = module.apply(
@@ -582,7 +571,7 @@ class DiffusionActionHead(nn.Module):
             current_x = alpha_1 * (current_x - alpha_2 * eps_pred)
 
             rng, key = jax.random.split(rng)
-            z = jnp.zeros_like(current_x)
+            z = jax.random.normal(key, shape=current_x.shape)
             current_x = current_x + (time > 0) * (jnp.sqrt(self.betas[time]) * z)
 
             current_x = jnp.clip(current_x, -self.max_action, self.max_action)
@@ -592,26 +581,27 @@ class DiffusionActionHead(nn.Module):
                 flat_action_mask, current_x, jnp.sqrt(1 - self.alpha_hats[time]) * z
             )
 
-            # return (current_x, rng), ()
+            return (current_x, rng), ()
 
-        # rng, key = jax.random.split(rng)
-        # noise = jnp.zeros(
-        #     (
-        #         *sample_shape,
-        #         batch_size,
-        #         window_size,
-        #         self.action_horizon * self.action_dim,
-        #     ),
-        # )
+        rng, key = jax.random.split(rng)
+        noise = jax.random.normal(
+            key,
+            (
+                *sample_shape,
+                batch_size,
+                window_size,
+                self.action_horizon * self.action_dim,
+            )
+        )
 
-        # (actions_flat, _), () = jax.lax.scan(
-        #     scan_fn,
-        #     (noise, rng),
-        #     jnp.arange(self.diffusion_steps - 1, -1, -1),
-        # )
+        (actions_flat, _), () = jax.lax.scan(
+            scan_fn,
+            (noise, rng),
+            jnp.arange(self.diffusion_steps - 1, -1, -1),
+        )
 
         actions = rearrange(
-            current_x,
+            actions_flat,
             "... (h a) -> ... h a",
             h=self.action_horizon,
             a=self.action_dim,
